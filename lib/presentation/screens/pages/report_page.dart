@@ -1,4 +1,3 @@
-import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,6 +32,7 @@ class _ReportPageState extends State<ReportPage> {
   Map<String, List<QueryDocumentSnapshot>> lineAvailableMap = {};
   String? selectedCity;
   String? selectedLine;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -41,12 +41,6 @@ class _ReportPageState extends State<ReportPage> {
     fetchUserData();
     getStationName().then((_) {
       fetchLineDataForEachStation();
-    });
-
-    Future.delayed(Duration.zero, () {
-      if (mounted) {
-        FocusScope.of(context).requestFocus(_firstFocusNode);
-      }
     });
   }
 
@@ -99,13 +93,7 @@ class _ReportPageState extends State<ReportPage> {
         setState(() {});
       }
     } catch (e) {
-      AwesomeDialog(
-        context: context,
-        animType: AnimType.rightSlide,
-        title: '',
-        desc: "هناك مشكلة",
-        btnOkOnPress: () {},
-      ).show();
+      _showAlertDialog(context, "هناك مشكلة");
     }
   }
 
@@ -124,6 +112,12 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _sendComplaint() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
     String first = _firstController.text.trim();
     String second = _secondController.text.trim();
     String third = _thirdController.text.trim();
@@ -139,7 +133,10 @@ class _ReportPageState extends State<ReportPage> {
         selectedCity == null ||
         selectedLine == null) {
       _showAlertDialog(
-          'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
+          context, 'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
+      setState(() {
+        _isLoading = false;
+      });
       return;
     }
 
@@ -150,7 +147,10 @@ class _ReportPageState extends State<ReportPage> {
           .get();
 
       if (mounted && carQuerySnapshot.docs.isEmpty) {
-        _showAlertDialog("نمرة السيارة غير صحيحة");
+        _showAlertDialog(context, "نمرة السيارة غير صحيحة");
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
 
@@ -183,11 +183,21 @@ class _ReportPageState extends State<ReportPage> {
 
         _clearInputFields();
         _resetDropdownValues();
+        Future.delayed(Duration.zero, () {
+          if (mounted) {
+            FocusScope.of(context).requestFocus(_firstFocusNode);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
-        _showAlertDialog('حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
+        _showAlertDialog(
+            context, 'حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
       }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -198,7 +208,7 @@ class _ReportPageState extends State<ReportPage> {
     });
   }
 
-  void _showAlertDialog(String message) {
+  void _showAlertDialog(BuildContext context, String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -421,10 +431,12 @@ class _ReportPageState extends State<ReportPage> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
           onPressed: _sendComplaint,
-          child: const Text(
-            'ارسل الشكوي',
-            style: TextStyle(fontSize: 18, color: Colors.white),
-          ),
+          child: _isLoading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text(
+                  'ارسل الشكوي',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
         ),
       ),
     );

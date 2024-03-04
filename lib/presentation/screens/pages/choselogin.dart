@@ -1,14 +1,14 @@
-
-import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:gradution_project2/constant/strings.dart';
 import 'package:gradution_project2/presentation/widgets/constant_widget.dart';
+import 'package:gradution_project2/presentation/widgets/nav_bar2new.dart';
+import 'package:gradution_project2/presentation/widgets/navbar.dart';
 
 class ChoseLogin extends StatefulWidget {
-  const ChoseLogin({super.key});
+  const ChoseLogin({Key? key}) : super(key: key);
 
   @override
   _ChoseLoginState createState() => _ChoseLoginState();
@@ -18,13 +18,15 @@ class _ChoseLoginState extends State<ChoseLogin> {
   bool isLoading = false;
 
   Future signInWithGoogle(BuildContext context) async {
-    isLoading = true;
-    setState(() {});
+    setState(() {
+      isLoading = true; // يتم تعيين isLoading للقيمة true هنا لإظهار مؤشر التحميل
+    });
 
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
-      isLoading = false;
-      setState(() {});
+      setState(() {
+        isLoading = false; // يتم تعيين isLoading للقيمة false هنا لإخفاء مؤشر التحميل
+      });
       return;
     }
 
@@ -38,17 +40,13 @@ class _ChoseLoginState extends State<ChoseLogin> {
 
     await FirebaseAuth.instance.signInWithCredential(credential);
 
-    AwesomeDialog(
-      context: context,
-      dialogType: DialogType.success,
-      animType: AnimType.rightSlide,
-      title: '',
-      desc: "تم تسجيل الدخول بنجاح",
-      btnOkOnPress: () {},
-    ).show().then(
-          (value) => Navigator.of(context)
-              .pushNamedAndRemoveUntil(navBar, (route) => false),
-        );
+    // Navigate after successful sign-in
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) {
+        return const Navbar();
+      }),
+      (route) => false,
+    );
   }
 
   @override
@@ -63,21 +61,19 @@ class _ChoseLoginState extends State<ChoseLogin> {
           body: isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                    
-                  color: Colors.blue,
-                ))
+                    color: Colors.blue,
+                  ),
+                )
               : Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         height: 200,
                         child: ConstantWidget(),
                       ),
-                      const SizedBox(
-                        height: 90,
-                      ),
+                      SizedBox(height: 90),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -134,6 +130,7 @@ class _ChoseLoginState extends State<ChoseLogin> {
                                   backgroundColor: Colors.red,
                                 ),
                                 onPressed: () {
+                                  // Loading while signing in with Google
                                   signInWithGoogle(context);
                                 },
                                 child: Row(
@@ -145,6 +142,73 @@ class _ChoseLoginState extends State<ChoseLogin> {
                                     ),
                                     const Text(
                                       "   تسجيل الدخول باستخدام جوجل  ",
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 20,
+                      ),
+                      const Row(
+                        children: [
+                          Expanded(
+                              child: Divider(
+                            endIndent: 14,
+                            color: Colors.blue,
+                          )),
+                          Text("or"),
+                          Expanded(
+                              child: Divider(
+                            indent: 14,
+                            color: Colors.blue,
+                          )),
+                        ],
+                      ),
+                      const SizedBox(
+                        height: 20,
+                      ),
+                      Container(
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                ),
+                                onPressed: () {
+                                  // Loading while signing in as a guest
+                                  setState(() {
+                                    isLoading = true;
+                                  });
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(builder: (context) {
+                                      return const NavBarNew();
+                                    }),
+                                    (route) => false,
+                                  );
+
+                                  // Update isLoading value after navigation
+                                  setState(() {
+                                    isLoading = false;
+                                  });
+                                },
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.people,
+                                      color: Colors.white,
+                                    ),
+                                    Text(
+                                      "   الدخول كضيف",
                                       style: TextStyle(
                                           color: Colors.white, fontSize: 16),
                                     ),

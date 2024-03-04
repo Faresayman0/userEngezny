@@ -11,6 +11,7 @@ class RatingWidget extends StatefulWidget {
 }
 
 class _RatingWidgetState extends State<RatingWidget> {
+  bool _loading = false; 
   double _rating = 0.0;
   String _carNumberLetters = '';
   String _carNumberDigits = '';
@@ -45,10 +46,6 @@ class _RatingWidgetState extends State<RatingWidget> {
     _secondFocusNode = FocusNode();
     _thirdFocusNode = FocusNode();
     _digitFocusNode = FocusNode();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FocusScope.of(context).requestFocus(_firstFocusNode);
-    });
   }
 
   @override
@@ -103,7 +100,11 @@ class _RatingWidgetState extends State<RatingWidget> {
           const SizedBox(height: 16.0),
           buildCarNumberFields(),
           const SizedBox(height: 16.0),
-          buildElevatedButton(),
+          _loading
+              ? const CircularProgressIndicator(
+                  color: Colors.blue,
+                )
+              : buildElevatedButton(),
           const SizedBox(height: 16.0),
         ],
       ),
@@ -205,7 +206,10 @@ class _RatingWidgetState extends State<RatingWidget> {
         minimumSize: const Size(double.infinity, 40),
       ),
       onPressed: () async {
-        // Check if all fields are filled
+        setState(() {
+          _loading = true; // تحديث حالة التحميل لتبدأ
+        });
+
         bool allFieldsFilled = _controllers.values
             .every((controller) => controller.text.trim().isNotEmpty);
 
@@ -217,12 +221,17 @@ class _RatingWidgetState extends State<RatingWidget> {
 
           String carNumber = '$_carNumberLetters$_carNumberDigits';
           await checkCarExistenceAndAddRating(carNumber);
-          _firstController.selection = const TextSelection.collapsed(offset: 0);
+          _firstController.selection =
+              const TextSelection(baseOffset: 0, extentOffset: 0);
 
           _firstFocusNode.requestFocus();
         } else {
           showValidationDialog();
         }
+
+        setState(() {
+          _loading = false; // تحديث حالة التحميل لتنتهي
+        });
       },
       child: const Text(
         'ارسل التقييم ',
@@ -245,21 +254,23 @@ class _RatingWidgetState extends State<RatingWidget> {
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        var carDocument = querySnapshot.docs.first; // Define carDocument here
+        var carDocument = querySnapshot.docs.first;
         var data = carDocument.data();
         List<dynamic>? ratedUserIds = data['userIds'];
 
         if (ratedUserIds != null &&
             ratedUserIds.contains(FirebaseAuth.instance.currentUser?.uid)) {
           _resetFields();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            FocusScope.of(context).requestFocus(_firstFocusNode);
+          });
           return;
         }
 
-        String userId = FirebaseAuth.instance.currentUser!.uid; // Get user ID
+        String userId = FirebaseAuth.instance.currentUser!.uid;
 
         if (data['userRatings'] != null &&
             data['userRatings'][userId] != null) {
-          // المستخدم موجود بالفعل، يمكنك عرض رسالة تطلب تحديث التقييم
           showUpdateRatingDialog(carDocument.id);
           return;
         }
@@ -275,7 +286,6 @@ class _RatingWidgetState extends State<RatingWidget> {
     } catch (error) {}
   }
 
-// دالة تحديث التقييم
   Future<void> updateExistingRating(String documentId) async {
     await _firestore.runTransaction((transaction) async {
       var documentSnapshot = await transaction.get(
@@ -291,7 +301,7 @@ class _RatingWidgetState extends State<RatingWidget> {
 
         double newUserRating = _rating;
 
-        String userId = FirebaseAuth.instance.currentUser!.uid; // Get user ID
+        String userId = FirebaseAuth.instance.currentUser!.uid;
 
         if (userRatings.containsKey(userId)) {
           double oldUserRating = userRatings[userId];
@@ -300,7 +310,7 @@ class _RatingWidgetState extends State<RatingWidget> {
           numberOfRatings++;
         }
 
-        userRatings[userId] = newUserRating; // Store user ID along with rating
+        userRatings[userId] = newUserRating;
 
         double newTotalRating = currentRating + newUserRating;
 
