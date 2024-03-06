@@ -4,9 +4,11 @@ import 'package:gradution_project2/bussines_logic/cubit/phone_auth_cubit.dart';
 import 'package:gradution_project2/constant/my_color.dart';
 import 'package:gradution_project2/constant/strings.dart';
 import 'package:gradution_project2/presentation/widgets/constant_widget.dart';
+import 'package:lottie/lottie.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -19,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   TextEditingController phoneController = TextEditingController();
 
-  bool isLoadin = false;
+  bool isLoading = false;
 
   Widget _buildFormFeild() {
     return Row(
@@ -98,7 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _register(BuildContext context) async {
     if (!phoneFormKey.currentState!.validate()) {
-    
       Navigator.pop(context);
     } else {
       Navigator.pop(context);
@@ -111,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return ElevatedButton(
       onPressed: () {
         if ((phoneFormKey.currentState!.validate())) {
+          checkInternetConnection();
           showProgressIndecator(context);
           _register(context);
         }
@@ -128,14 +130,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void showProgressIndecator(BuildContext context) {
-    AlertDialog alertDialog = const AlertDialog(
+    AlertDialog alertDialog = AlertDialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       content: Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-        ),
+          child: Column(
+              children: [
+      Lottie.asset("asset/images/splash.json"),
+      const CircularProgressIndicator(
+        color: Colors.blue,
       ),
+              ],
+            )),
     );
     showDialog(
         barrierDismissible: false,
@@ -170,33 +176,62 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: (Scaffold(
+      child: Scaffold(
         body: Form(
-            key: phoneFormKey,
-            child: ListView(
-              children: [
-                Container(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 200, child: ConstantWidget()),
-                        const SizedBox(
-                          height: 50,
-                        ),
-                        _buildFormFeild(),
-                        const SizedBox(
-                          height: 70,
-                        ),
-                        _buildNextButton(context),
-                        _buildPhoneNumberSubmitedBloc()
-                      ],
-                    ),
+          key: phoneFormKey,
+          child: ListView(
+            children: [
+              Container(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 200, child: ConstantWidget()),
+                      const SizedBox(
+                        height: 50,
+                      ),
+                      _buildFormFeild(),
+                      const SizedBox(
+                        height: 70,
+                      ),
+                      _buildNextButton(context),
+                      _buildPhoneNumberSubmitedBloc()
+                    ],
                   ),
                 ),
-              ],
-            )),
-      )),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Future<void> checkInternetConnection() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      // في حالة عدم وجود اتصال بالإنترنت، إغلاق الـ loading
+      Navigator.of(context).pop();
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("خطأ في الاتصال بالإنترنت"),
+            content: const Text(
+                "الرجاء التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى."),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("موافق"),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      print('Internet Connection is available');
+    }
   }
 }

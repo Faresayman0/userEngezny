@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gradution_project2/presentation/screens/components/drop_down.dart';
+import 'package:gradution_project2/presentation/screens/pages/choselogin.dart';
 import 'package:gradution_project2/presentation/widgets/constant_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -13,7 +14,7 @@ class ReportPage extends StatefulWidget {
 }
 
 class _ReportPageState extends State<ReportPage> {
-  late User _user;
+  User? _user;
   String? userEmail;
   String? userPhoneNumber;
 
@@ -37,7 +38,7 @@ class _ReportPageState extends State<ReportPage> {
   @override
   void initState() {
     super.initState();
-    _user = FirebaseAuth.instance.currentUser!;
+    _user = FirebaseAuth.instance.currentUser;
     fetchUserData();
     getStationName().then((_) {
       fetchLineDataForEachStation();
@@ -111,95 +112,109 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
-  Future<void> _sendComplaint() async {
-    if (_isLoading) return;
+ Future<void> _sendComplaint() async {
+  setState(() {
+    _isLoading = true;
+  });
 
+  String first = _firstController.text.trim();
+  String second = _secondController.text.trim();
+  String third = _thirdController.text.trim();
+  String digit = _digitController.text.trim();
+  String carNumber = '$first$second$third$digit';
+  String complaint = _complaintController.text.trim();
+
+  if (second.isEmpty ||
+      third.isEmpty ||
+      digit.isEmpty ||
+      complaint.isEmpty ||
+      selectedCity == null ||
+      selectedLine == null) {
+    _showAlertDialog(
+        context, 'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
     setState(() {
-      _isLoading = true;
+      _isLoading = false; 
     });
+    return;
+  }
 
-    String first = _firstController.text.trim();
-    String second = _secondController.text.trim();
-    String third = _thirdController.text.trim();
-    String digit = _digitController.text.trim();
-    String carNumber = '$first$second$third$digit';
-    String complaint = _complaintController.text.trim();
+  try {
+    final carQuerySnapshot = await FirebaseFirestore.instance
+        .collection('AllCars')
+        .where('numberOfCar', isEqualTo: carNumber)
+        .get();
 
-    if (first.isEmpty ||
-        second.isEmpty ||
-        third.isEmpty ||
-        digit.isEmpty ||
-        complaint.isEmpty ||
-        selectedCity == null ||
-        selectedLine == null) {
-      _showAlertDialog(
-          context, 'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
+    if (carQuerySnapshot.docs.isEmpty) {
+      _clearInputFields();
+    _resetDropdownValues();
+    Future.delayed(Duration.zero, () {
+      FocusScope.of(context).requestFocus(_firstFocusNode);
+    });
+      _showAlertDialog(context, "نمرة السيارة غير صحيحة");
       setState(() {
-        _isLoading = false;
+        _isLoading = false; 
       });
       return;
     }
 
-    try {
-      final carQuerySnapshot = await FirebaseFirestore.instance
-          .collection('AllCars')
-          .where('numberOfCar', isEqualTo: carNumber)
-          .get();
-
-      if (mounted && carQuerySnapshot.docs.isEmpty) {
-        _showAlertDialog(context, "نمرة السيارة غير صحيحة");
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      CollectionReference messages =
-          FirebaseFirestore.instance.collection('messages');
-
-      DocumentReference newDocRef = await messages.add({
-        'carNumber': carNumber,
-        'complaint': complaint,
-        'timestamp': FieldValue.serverTimestamp(),
-        'userId': _user.uid,
-        'userName': userEmail ?? userPhoneNumber,
-        'startingLocation': selectedCity,
-        'endingLocation': selectedLine,
-      });
-
-      String documentId = newDocRef.id;
-
-      await newDocRef.update({'documentId': documentId});
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              backgroundColor: Colors.green,
-              content: Text(
-                'تم إرسال الشكوى بنجاح',
-                textAlign: TextAlign.end,
-              )),
-        );
-
-        _clearInputFields();
-        _resetDropdownValues();
-        Future.delayed(Duration.zero, () {
-          if (mounted) {
-            FocusScope.of(context).requestFocus(_firstFocusNode);
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        _showAlertDialog(
-            context, 'حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
-      }
-    } finally {
+    var selectedStationId = stationName
+        .firstWhere((element) => element['name'] == selectedCity)['id'];
+    var stationIds = carQuerySnapshot.docs
+        .map((doc) => doc['stationId'].toString())
+        .toList();
+    if (!stationIds.contains(selectedStationId)) {
+      _clearInputFields();
+    _resetDropdownValues();
+    Future.delayed(Duration.zero, () {
+      FocusScope.of(context).requestFocus(_firstFocusNode);
+    });
+      _showAlertDialog(context, "السيارة لم تتم تسجيلها في هذا الموقف");
       setState(() {
-        _isLoading = false;
+        _isLoading = false;    
       });
+      return;
     }
+
+    CollectionReference messages =
+        FirebaseFirestore.instance.collection('messages');
+
+    DocumentReference newDocRef = await messages.add({
+      'carNumber': carNumber,
+      'complaint': complaint,
+      'timestamp': FieldValue.serverTimestamp(),
+      'userId': _user?.uid,
+      'userName': userEmail ?? userPhoneNumber,
+      'startingLocation': selectedCity,
+      'endingLocation': selectedLine,
+      'stationId': selectedStationId,
+    });
+
+    String documentId = newDocRef.id;
+    await newDocRef.update({'documentId': documentId});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text(
+            'تم إرسال الشكوى بنجاح',
+            textAlign: TextAlign.end,
+          )),
+    );
+
+    _clearInputFields();
+    _resetDropdownValues();
+    Future.delayed(Duration.zero, () {
+      FocusScope.of(context).requestFocus(_firstFocusNode);
+    });
+  } catch (e) {
+    _showAlertDialog(
+        context, 'حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
+  } finally {
+    setState(() {
+      _isLoading = false; 
+    });
   }
+}
 
   void _resetDropdownValues() {
     setState(() {
@@ -301,7 +316,7 @@ class _ReportPageState extends State<ReportPage> {
     return Column(children: [
       Row(
         children: [
-          _buildTextField('الارقام', _digitController, _digitFocusNode, 3,
+          _buildTextField('الارقام', _digitController, _digitFocusNode, 4,
               TextInputType.number),
           const SizedBox(width: 8),
           _buildTextField('ثالث حرف', _thirdController, _thirdFocusNode, 1,
@@ -357,36 +372,83 @@ class _ReportPageState extends State<ReportPage> {
     ]);
   }
 
-  Widget _buildTextField(String labelText, TextEditingController controller,
-      FocusNode focusNode, int maxLength, TextInputType keyboardType) {
-    return Expanded(
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.center,
-        focusNode: focusNode,
-        onChanged: (value) {
-          if (value.length == maxLength) {
-            _moveToNextField(focusNode, maxLength);
-          }
-        },
-        decoration: InputDecoration(
-          labelText: labelText,
-          labelStyle: const TextStyle(color: Colors.blue, fontSize: 10),
-          counterText: '',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.blue),
-          ),
-        ),
-        keyboardType: keyboardType,
-        maxLength: maxLength,
-        onEditingComplete: () {
+ void _checkCarExistence() async {
+  String first = _firstController.text.trim();
+  String second = _secondController.text.trim();
+  String third = _thirdController.text.trim();
+  String digit = _digitController.text.trim();
+  String carNumber = '$first$second$third$digit';
+
+  try {
+    final carQuerySnapshot = await FirebaseFirestore.instance
+        .collection('AllCars')
+        .where('numberOfCar', isEqualTo: carNumber)
+        .get();
+
+    if (mounted && carQuerySnapshot.docs.isNotEmpty) {
+      // السيارة موجودة
+      for (var doc in carQuerySnapshot.docs) {
+        var stationId = doc['stationId'];
+        print('stationId for car $carNumber: $stationId');
+      }
+    } else {
+      // السيارة غير موجودة
+      print('السيارة غير موجودة');
+    }
+  } catch (e) {
+    print('حدث خطأ أثناء البحث عن السيارة: $e');
+  }
+}
+
+Widget _buildTextField(String labelText, TextEditingController controller,
+    FocusNode focusNode, int maxLength, TextInputType keyboardType) {
+  return Expanded(
+    child: TextField(
+      controller: controller,
+      textAlign: TextAlign.center,
+      focusNode: focusNode,
+      onChanged: (value) {
+        _checkCarExistence(); // تنفيذ الكود عند تغيير القيمة
+        if (value.length == maxLength) {
           _moveToNextField(focusNode, maxLength);
-        },
+        }
+      },
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: const TextStyle(color: Colors.blue, fontSize: 10),
+        counterText: '',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.blue),
+        ),
       ),
-    );
+      keyboardType: keyboardType,
+      maxLength: maxLength,
+      onEditingComplete: () {
+        _moveToNextField(focusNode, maxLength);
+      },
+    ),
+  );
+}
+
+  Future<void> printStationIdForCar(String carNumber) async {
+    try {
+      var carSnapshot = await FirebaseFirestore.instance
+          .collection('AllCars')
+          .where('numberOfCar', isEqualTo: carNumber)
+          .get();
+
+      if (carSnapshot.docs.isNotEmpty) {
+        var stationId = carSnapshot.docs.first['stationId'];
+        print('stationId for car $carNumber: $stationId');
+      } else {
+        print('السيارة غير موجودة');
+      }
+    } catch (e) {
+      print('حدث خطأ أثناء البحث عن السيارة: $e');
+    }
   }
 
   void _moveToNextField(FocusNode focusNode, int maxLength) {
@@ -430,7 +492,10 @@ class _ReportPageState extends State<ReportPage> {
         height: 50,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-          onPressed: _sendComplaint,
+          onPressed: () {
+            _sendComplaint();
+            printStationIdForCar(_buildCarNumber());
+          },
           child: _isLoading
               ? const CircularProgressIndicator(color: Colors.white)
               : const Text(
@@ -441,6 +506,13 @@ class _ReportPageState extends State<ReportPage> {
       ),
     );
   }
+String _buildCarNumber() {
+  String first = _firstController.text.trim();
+  String second = _secondController.text.trim();
+  String third = _thirdController.text.trim();
+  String digit = _digitController.text.trim();
+  return '$first$second$third$digit';
+}
 
   Widget _buildSentComplaints() {
     return Column(
@@ -458,7 +530,7 @@ class _ReportPageState extends State<ReportPage> {
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('messages')
-                .where('userId', isEqualTo: _user.uid)
+                .where('userId', isEqualTo: _user?.uid)
                 .orderBy('timestamp', descending: true)
                 .snapshots(),
             builder: (BuildContext context,
@@ -537,22 +609,77 @@ class _ReportPageState extends State<ReportPage> {
           children: [
             const ConstantWidget(),
             const SizedBox(
-              height: 10,
+              height: 20,
             ),
-            const SizedBox(height: 10),
-            const Center(
-              child: Text(
-                "ادخل نمرة السيارة",
-                style: TextStyle(fontSize: 25),
+            if (_user == null) // التحقق من وجود المستخدم
+              Column(
+                children: [
+                  const Text(
+                    "لا يمكنك ارسال شكوي يجب عليك تسجيل الدخول اولا لارسال شكوتك",
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  Container(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (context) {
+                                  return const ChoseLogin();
+                                }),
+                                (route) => false,
+                              );
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                ),
+                                Text(
+                                  "تسجيل الدخول",
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: Text(
+                      "ادخل نمرة السيارة",
+                      style: TextStyle(fontSize: 25),
+                    ),
+                  ),
+                  _buildCarNumberInput(),
+                  const SizedBox(height: 16),
+                  _buildComplaintInput(),
+                  const SizedBox(height: 16),
+                  _buildSendComplaintButton(),
+                  const SizedBox(height: 32),
+                  _buildSentComplaints(),
+                ],
               ),
-            ),
-            _buildCarNumberInput(),
-            const SizedBox(height: 16),
-            _buildComplaintInput(),
-            const SizedBox(height: 16),
-            _buildSendComplaintButton(),
-            const SizedBox(height: 32),
-            _buildSentComplaints(),
           ],
         ),
       ),

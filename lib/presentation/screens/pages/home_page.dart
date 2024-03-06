@@ -8,13 +8,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as maps;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:gradution_project2/bussines_logic/cubit/phone_auth_cubit.dart';
 import 'package:gradution_project2/constant/strings.dart';
 import 'package:gradution_project2/presentation/screens/components/drop_down.dart';
 import 'package:gradution_project2/presentation/widgets/constant_widget.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,8 +33,8 @@ class _HomePageState extends State<HomePage> {
   String? selectedCity;
   bool isLoading = false;
 
-  late GoogleMapController _mapController;
-  late LatLng _currentLocation = const LatLng(0.0, 0.0);
+  late maps.GoogleMapController _mapController;
+  late maps.LatLng _currentLocation = const maps.LatLng(0.0, 0.0);
   Set<Marker> _markers = {};
 
   @override
@@ -130,7 +131,6 @@ class _HomePageState extends State<HomePage> {
       selectedCity = null;
     });
     fetchData();
-    getCurrentLocation();
   }
 
   Future<void> launchMap(String name, GeoPoint location) async {
@@ -169,13 +169,14 @@ class _HomePageState extends State<HomePage> {
         if (mounted) {
           if (position.latitude != 0.0 && position.longitude != 0.0) {
             setState(() {
-              _currentLocation = LatLng(position.latitude, position.longitude);
+              _currentLocation =
+                  maps.LatLng(position.latitude, position.longitude);
               _markers.add(
-                Marker(
-                  markerId: const MarkerId("currentLocation"),
+                maps.Marker(
+                  markerId: const maps.MarkerId("currentLocation"),
                   position: _currentLocation,
-                  infoWindow: const InfoWindow(title: "Your Location"),
-                ),
+                  infoWindow: const maps.InfoWindow(title: "Your Location"),
+                ) as Marker,
               );
             });
           } else {}
@@ -275,55 +276,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  double calculateDistance(
-    double startLatitude,
-    double startLongitude,
-    double endLatitude,
-    double endLongitude,
-  ) {
-    const double earthRadius = 6371.0;
-    double dLat = _degreesToRadians(endLatitude - startLatitude);
-    double dLon = _degreesToRadians(endLongitude - startLongitude);
-
-    double a = pow(sin(dLat / 2), 2) +
-        cos(_degreesToRadians(startLatitude)) *
-            cos(_degreesToRadians(endLatitude)) *
-            pow(sin(dLon / 2), 2);
-
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-    double distanceInKm = earthRadius * c;
-    return distanceInKm;
-  }
-
-  double _degreesToRadians(double degrees) {
-    return degrees * (pi / 180.0);
-  }
-
-  Future<double> getDistance(LatLng origin, LatLng destination) async {
-    const apiKey = 'AIzaSyDh3__9kh_BOO31Jph0XNt2VhSYVsMYobo';
-    final url =
-        'https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=$apiKey';
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      if (data['status'] == 'OK') {
-        final routes = data['routes'] as List<dynamic>;
-        if (routes.isNotEmpty) {
-          final legs = routes[0]['legs'] as List<dynamic>;
-          if (legs.isNotEmpty) {
-            final distance = legs[0]['distance']['value'] as int;
-            return distance / 1000.0;
-          }
-        }
-      }
-    }
-
-    return 0.0;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -340,17 +292,13 @@ class _HomePageState extends State<HomePage> {
               onPressed: () async {
                 final phoneAuthCubit = PhoneAuthCubit();
                 final googleSignIn = GoogleSignIn();
-
                 try {
                   await googleSignIn.disconnect();
                 } catch (error) {}
-
                 try {
                   await FirebaseAuth.instance.signOut();
                 } catch (error) {}
-
                 await phoneAuthCubit.logOut();
-
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   choseLogin,
                   (route) => false,
@@ -361,51 +309,48 @@ class _HomePageState extends State<HomePage> {
           )
         ],
       ),
-  floatingActionButton: FloatingActionButton.extended(
-  backgroundColor: Colors.blue,
-  onPressed: () async {
-    setState(() {
-      isLoading = true;
-    });
-
-    // عرض شاشة التحميل فورًا
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              color: Colors.transparent,
-            ),
-            const CircularProgressIndicator(
-              color: Colors.blue,
-            ),
-          ],
-        );
-      },
-    );
-
-    // احصل على الموقع الحالي
-    await getCurrentLocation();
-
-    if (_currentLocation.latitude != 0.0 && _currentLocation.longitude != 0.0) {
-      // إخفاء شاشة التحميل
-      Navigator.of(context).pop();
-
-      // عرض شاشة الحوار بعد الانتهاء من الحصول على الموقع
-      _showNearestStationDialog();
-    }
-
-    // قم بتحديث isLoading لإخفاء شاشة التحميل
-    setState(() {
-      isLoading = false;
-    });
-  },
-  label: const Text("اقرب موقف لك"),
-),
-    body: Padding(
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.blue,
+        onPressed: () async {
+          setState(() {
+            isLoading = true;
+          });
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    color: Colors.transparent,
+                  ),
+                  Center(
+                      child: Column(
+                    children: [
+                      Lottie.asset("asset/images/splash.json"),
+                      const CircularProgressIndicator(
+                        color: Colors.blue,
+                      ),
+                    ],
+                  )),
+                ],
+              );
+            },
+          );
+          await getCurrentLocation();
+          if (_currentLocation.latitude != 0.0 &&
+              _currentLocation.longitude != 0.0) {
+            Navigator.of(context).pop();
+            _showNearestStationDialog();
+          }
+          setState(() {
+            isLoading = false;
+          });
+        },
+        label: const Text("اقرب موقف لك"),
+      ),
+      body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -645,90 +590,227 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<Map<String, double>> getDistanceAndDuration(
+      maps.LatLng origin, maps.LatLng destination, String mode) async {
+    const apiKey = 'AIzaSyDh3__9kh_BOO31Jph0XNt2VhSYVsMYobo';
+    final url =
+        'https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origin.latitude},${origin.longitude}&destinations=${destination.latitude},${destination.longitude}&mode=$mode&key=$apiKey';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      print(response.request);
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data['status'] == 'OK') {
+        final elements = data['rows'][0]['elements'] as List<dynamic>;
+        if (elements.isNotEmpty) {
+          final distanceData = elements[0]['distance'];
+          final durationData = elements[0]['duration'];
+          final distance =
+              distanceData != null ? distanceData['value'] as int : 0;
+          final duration =
+              durationData != null ? durationData['value'] as int : 0;
+          return {'distance': distance / 1000.0, 'duration': duration / 60.0};
+        }
+      }
+    }
+    return {'distance': 0.0, 'duration': 0.0};
+  }
+
   Future<void> _showNearestStationDialog() async {
     if (stationName == null || stationName!.isEmpty) {
       return;
     }
 
-    double minDistance = double.infinity;
-    QueryDocumentSnapshot? nearestStation;
+    List<Map<String, dynamic>> modes = [
+      {"name": "المشي", "icon": Icons.directions_walk},
+      {"name": "السيارة", "icon": Icons.directions_car},
+      {"name": "الموتوسيكل", "icon": Icons.motorcycle_rounded},
+    ];
 
-    for (var station in stationName!) {
-      GeoPoint stationLocation = station['location'];
-      double distance = await getDistance(
-        LatLng(_currentLocation.latitude, _currentLocation.longitude),
-        LatLng(stationLocation.latitude, stationLocation.longitude),
+    String? selectedMode = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text(
+            'اختر نوع المواصلات',
+            textAlign: TextAlign.center,
+          ),
+          children: modes.map((mode) {
+            return SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, mode["name"]);
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Icon(
+                    mode["icon"],
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(mode["name"]),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+
+    if (selectedMode != null) {
+      String modeForAPI;
+      if (selectedMode == "المشي") {
+        modeForAPI = "walking";
+      } else if (selectedMode == "السيارة") {
+        modeForAPI = "driving";
+      } else {
+        modeForAPI = "motorcycle";
+      }
+
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return Center(
+              child: Column(
+            children: [
+              Lottie.asset("asset/images/splash.json"),
+              const CircularProgressIndicator(
+                color: Colors.blue,
+              ),
+              Text("جار حساب اقرب موقف بالنسبه ل $selectedMode"),
+            ],
+          ));
+        },
       );
 
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestStation = station;
+      double minDistance = double.infinity;
+      int minDuration = 0;
+      QueryDocumentSnapshot? nearestStation;
+
+      for (var station in stationName!) {
+        GeoPoint stationLocation = station['location'];
+        Map<String, double> data = await getDistanceAndDuration(
+          maps.LatLng(_currentLocation.latitude, _currentLocation.longitude),
+          maps.LatLng(stationLocation.latitude, stationLocation.longitude),
+          modeForAPI,
+        );
+
+        double distance = data['distance'] ?? 0.0;
+        double duration = data['duration'] ?? 0.0;
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          minDuration = duration.round();
+          nearestStation = station;
+        }
       }
-    }
 
-    if (nearestStation != null) {
-      final distanceInKm = minDistance;
-      final distanceInMeters = minDistance * 1000;
+      Navigator.pop(context);
 
-      if (await Geolocator.isLocationServiceEnabled()) {
+      if (nearestStation != null) {
+        final distanceInKm = minDistance;
+        final distanceInMeters = minDistance * 1000;
+
+        if (await Geolocator.isLocationServiceEnabled()) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text(
+                  "أقرب موقف",
+                  textAlign: TextAlign.center,
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const SizedBox(
+                            width: 30,
+                          ),
+                          Icon(
+                            _getIconForMode(selectedMode),
+                            color: Colors.blue,
+                            size: 30,
+                          ),
+                          Flexible(
+                            flex: 2,
+                            child: Text(
+                              " الموقف الأقرب إليك بالنسبه ل $selectedMode هو: ${nearestStation?['name']}",
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text("المسافة: ${distanceInKm.toStringAsFixed(1)} كم"),
+                      Text("${distanceInMeters.toStringAsFixed(1)} متر"),
+                      const SizedBox(height: 10),
+                      Text("الوقت المقدر تقريبا: $minDuration دقيقة"),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text("حسنًا",
+                        style: TextStyle(color: Colors.black)),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      launchMap(
+                          nearestStation?['name'], nearestStation?['location']);
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      "عرض الموقع على الخريطة",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      } else {
         showDialog(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text("أقرب موقف"),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text("الموقف الأقرب إليك هو: ${nearestStation?['name']}"),
-                  const SizedBox(height: 10),
-                  const Text("المسافة:"),
-                  Text("${distanceInKm.toStringAsFixed(1)} كم"),
-                  Text("${distanceInMeters.toStringAsFixed(1)} متر"),
-                ],
-              ),
+              content: const Text("لا يمكن العثور على المواقف القريبة."),
               actions: <Widget>[
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
-                  child: const Text("حسنًا",
-                      style: TextStyle(color: Colors.black)),
-                ),
-                TextButton(
-                  onPressed: () {
-                    launchMap(
-                        nearestStation?['name'], nearestStation?['location']);
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    "عرض الموقع على الخريطة",
-                    style: TextStyle(color: Colors.black),
-                  ),
+                  child: const Text("حسنًا"),
                 ),
               ],
             );
           },
         );
       }
-    } else {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text("أقرب موقف"),
-            content: const Text("لا يمكن العثور على المواقف القريبة."),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text("حسنًا"),
-              ),
-            ],
-          );
-        },
-      );
+    }
+  }
+
+  IconData _getIconForMode(String mode) {
+    switch (mode) {
+      case "المشي":
+        return Icons.directions_walk;
+      case "السيارة":
+        return Icons.directions_car;
+      case "الموتوسيكل":
+        return Icons.motorcycle_rounded;
+      default:
+        return Icons.directions_walk; // Default icon
     }
   }
 }

@@ -235,26 +235,27 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () async {
-                      if (await canLaunch(facebookUrl)) {
-                        await launch(facebookUrl);
-                      } else {
-                        throw 'Could not launch $facebookUrl';
-                      }
-                    },
-                    child: const Row(
-                      children: [
-                        Icon(Icons.facebook, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text(
-                          'فيسبوك',
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+             GestureDetector(
+  onTap: () async {
+    String url = facebookUrl; // يجب أن يكون facebookUrl هو رابط ملف الشخص على Facebook
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw 'Could not launch $url';
+    }
+  },
+  child: const Row(
+    children: [
+      Icon(Icons.facebook, color: Colors.blue),
+      SizedBox(width: 8),
+      Text(
+        'فيسبوك',
+        style: TextStyle(fontSize: 20),
+      ),
+    ],
+  ),
+),
+    ],
               ),
               actions: [
                 TextButton(

@@ -11,7 +11,7 @@ class RatingWidget extends StatefulWidget {
 }
 
 class _RatingWidgetState extends State<RatingWidget> {
-  bool _loading = false; 
+  bool _loading = false;
   double _rating = 0.0;
   String _carNumberLetters = '';
   String _carNumberDigits = '';
@@ -120,7 +120,7 @@ class _RatingWidgetState extends State<RatingWidget> {
       children: labels.map((label) {
         TextEditingController controller = _controllers[label]!;
         bool isDigit = label == 'الأرقام';
-        int maxLength = isDigit ? 3 : 1;
+        int maxLength = isDigit ? 4 : 1;
         FocusNode focusNode;
         FocusNode? nextFocusNode;
 
@@ -199,92 +199,98 @@ class _RatingWidgetState extends State<RatingWidget> {
     );
   }
 
-  ElevatedButton buildElevatedButton() {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        minimumSize: const Size(double.infinity, 40),
-      ),
-      onPressed: () async {
-        setState(() {
-          _loading = true; // تحديث حالة التحميل لتبدأ
-        });
+ ElevatedButton buildElevatedButton() {
+  return ElevatedButton(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.blue,
+      minimumSize: const Size(double.infinity, 40),
+    ),
+    onPressed: () async {
+      setState(() {
+        _loading = true; // تحديث حالة التحميل لتبدأ
+      });
 
-        bool allFieldsFilled = _controllers.values
-            .every((controller) => controller.text.trim().isNotEmpty);
+      // Check if any of the other fields is empty
+      bool otherFieldsEmpty = _secondController.text.trim().isEmpty ||
+          _thirdController.text.trim().isEmpty ||
+          _digitController.text.trim().isEmpty;
 
-        if (allFieldsFilled) {
-          _carNumberLetters = '';
-          for (var entry in _controllers.entries) {
-            _carNumberLetters += entry.value.text;
-          }
+      // Check if the first field is empty
+      bool firstFieldEmpty = _firstController.text.trim().isEmpty;
 
-          String carNumber = '$_carNumberLetters$_carNumberDigits';
-          await checkCarExistenceAndAddRating(carNumber);
-          _firstController.selection =
-              const TextSelection(baseOffset: 0, extentOffset: 0);
-
-          _firstFocusNode.requestFocus();
-        } else {
-          showValidationDialog();
+      if (!firstFieldEmpty || !otherFieldsEmpty) {
+        _carNumberLetters = '';
+        for (var entry in _controllers.entries) {
+          _carNumberLetters += entry.value.text;
         }
 
-        setState(() {
-          _loading = false; // تحديث حالة التحميل لتنتهي
-        });
-      },
-      child: const Text(
-        'ارسل التقييم ',
-        style: TextStyle(color: Colors.white),
-      ),
-    );
-  }
+        String carNumber = '$_carNumberLetters$_carNumberDigits';
+        await checkCarExistenceAndAddRating(carNumber);
+        _firstController.selection =
+            const TextSelection(baseOffset: 0, extentOffset: 0);
+
+        _firstFocusNode.requestFocus();
+      } else {
+        showValidationDialog();
+      }
+
+      setState(() {
+        _loading = false; // تحديث حالة التحميل لتنتهي
+      });
+    },
+    child: const Text(
+      'ارسل التقييم ',
+      style: TextStyle(color: Colors.white),
+    ),
+  );
+}
 
   void _moveToNextField(FocusNode focusNode) {
     FocusScope.of(context).requestFocus(focusNode);
   }
 
-  Future<void> checkCarExistenceAndAddRating([String? carNumber]) async {
-    carNumber ??= '$_carNumberLetters$_carNumberDigits';
+ Future<void> checkCarExistenceAndAddRating([String? carNumber]) async {
+  carNumber ??= '$_carNumberLetters$_carNumberDigits';
 
-    try {
-      var querySnapshot = await _firestore
-          .collection('AllCars')
-          .where('numberOfCar', isEqualTo: carNumber)
-          .get();
+  try {
+    var querySnapshot = await _firestore
+        .collection('AllCars')
+        .where('numberOfCar', isEqualTo: carNumber)
+        .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        var carDocument = querySnapshot.docs.first;
-        var data = carDocument.data();
-        List<dynamic>? ratedUserIds = data['userIds'];
+    if (querySnapshot.docs.isNotEmpty) {
+      var carDocument = querySnapshot.docs.first;
+      var data = carDocument.data();
+      List<dynamic>? ratedUserIds = data['userIds'];
 
-        if (ratedUserIds != null &&
-            ratedUserIds.contains(FirebaseAuth.instance.currentUser?.uid)) {
-          _resetFields();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            FocusScope.of(context).requestFocus(_firstFocusNode);
-          });
-          return;
-        }
-
-        String userId = FirebaseAuth.instance.currentUser!.uid;
-
-        if (data['userRatings'] != null &&
-            data['userRatings'][userId] != null) {
-          showUpdateRatingDialog(carDocument.id);
-          return;
-        }
-
-        if (data.containsKey('rating')) {
-          await updateExistingRating(carDocument.id);
-        } else {
-          await addRatingField(carDocument.id);
-        }
-      } else {
-        showCarNotFoundErrorDialog(carNumber);
+      if (ratedUserIds != null &&
+          ratedUserIds.contains(FirebaseAuth.instance.currentUser?.uid)) {
+        _resetFields();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          FocusScope.of(context).requestFocus(_firstFocusNode);
+        });
+        return;
       }
-    } catch (error) {}
+
+      String userId = FirebaseAuth.instance.currentUser!.uid;
+
+      if (data['userRatings'] != null &&
+          data['userRatings'][userId] != null) {
+        showUpdateRatingDialog(carDocument.id);
+        return;
+      }
+
+      if (data.containsKey('rating')) {
+        await updateExistingRating(carDocument.id);
+      } else {
+        await addRatingField(carDocument.id);
+      }
+    } else {
+      showCarNotFoundErrorDialog(carNumber);
+    }
+  } catch (error) {
   }
+}
 
   Future<void> updateExistingRating(String documentId) async {
     await _firestore.runTransaction((transaction) async {
@@ -352,9 +358,14 @@ class _RatingWidgetState extends State<RatingWidget> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('تقييم سابق'),
+          title: const Text(
+            'تقييم سابق',
+            textAlign: TextAlign.center,
+          ),
           content: const Text(
-              'لقد قمت بتقييم هذه السيارة مسبقًا، هل تريد تحديث التقييم؟'),
+            'لقد قمت بتقييم هذه السيارة مسبقًا، هل تريد تحديث التقييم؟',
+            textAlign: TextAlign.right,
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -411,9 +422,20 @@ class _RatingWidgetState extends State<RatingWidget> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('تم بنجاح'),
-          content: Text(
-            'تمت إضافة التقييم بنجاح. المتوسط: ${averageRating.toStringAsFixed(1)}',
+          title: const Text(
+            'تم بنجاح',
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'تمت إضافة التقييم بنجاح. تقييمك: ${_rating.toStringAsFixed(1)}',
+              ),
+              Text(
+                'تمت إضافة التقييم بنجاح. المتوسط: ${averageRating.toStringAsFixed(1)}',
+              ),
+            ],
           ),
           actions: <Widget>[
             TextButton(

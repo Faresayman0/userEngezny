@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 
@@ -196,12 +197,13 @@ class _TransportDetailsState extends State<TransportDetails> {
 
         final decodedData = json.decode(response.body);
 
-        const arrivalTimeText = 'لاحقا';
-        final distance = (decodedData['routes'][0]['legs'][0]["distance"] !=
-                    null &&
-                decodedData['routes'][0]['legs'][0]["distance"]['text'] != null)
-            ? decodedData['routes'][0]['legs'][0]["distance"]['text']
-            : 'لاحقا';
+        final arrivalTime =
+            (decodedData['routes'][0]['legs'][0]['arrival_time'] != null &&
+                    decodedData['routes'][0]['legs'][0]['arrival_time']
+                            ['text'] !=
+                        null)
+                ? decodedData['routes'][0]['legs'][0]['arrival_time']['text']
+                : 'لاحقا';
 
         final departureTime =
             (decodedData['routes'][0]['legs'][0]['departure_time'] != null &&
@@ -211,13 +213,20 @@ class _TransportDetailsState extends State<TransportDetails> {
                 ? decodedData['routes'][0]['legs'][0]['departure_time']['text']
                 : 'لاحقا';
 
+        const arrivalTimeText = 'لاحقا';
+        final distance = (decodedData['routes'][0]['legs'][0]["distance"] !=
+                    null &&
+                decodedData['routes'][0]['legs'][0]["distance"]['text'] != null)
+            ? decodedData['routes'][0]['legs'][0]["distance"]['text']
+            : 'لاحقا';
+
         final duration = (decodedData['routes'][0]['legs'][0]["duration"] !=
                     null &&
                 decodedData['routes'][0]['legs'][0]["duration"]['text'] != null)
             ? decodedData['routes'][0]['legs'][0]["duration"]['text']
             : 'لاحقا';
 
-        _showTransportDetailsBottomSheet(decodedData, arrivalTimeText,
+        _showTransportDetailsBottomSheet(decodedData, arrivalTime,
             departureTime, distance, duration, stationLocation);
       } else {
         showDialog(
@@ -279,187 +288,183 @@ class _TransportDetailsState extends State<TransportDetails> {
     }
   }
 
- void _showTransportDetailsBottomSheet(
-  Map<String, dynamic> data,
-  String arrivalTime,
-  String departureTime,
-  String distance,
-  String duration,
-  GeoPoint stationLocation,
-) {
-  if (data.containsKey('routes') &&
-      data['routes'].isNotEmpty &&
-      data['routes'][0].containsKey('legs') &&
-      data['routes'][0]['legs'].isNotEmpty &&
-      data['routes'][0]['legs'][0].containsKey('steps') &&
-      data['routes'][0]['legs'][0]['steps'].isNotEmpty) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      _openInMap(
-                        stationLocation.latitude,
-                        stationLocation.longitude,
+  void _showTransportDetailsBottomSheet(
+    Map<String, dynamic> data,
+    String arrivalTime,
+    String departureTime,
+    String distance,
+    String duration,
+    GeoPoint stationLocation,
+  ) {
+    if (data.containsKey('routes') &&
+        data['routes'].isNotEmpty &&
+        data['routes'][0].containsKey('legs') &&
+        data['routes'][0]['legs'].isNotEmpty &&
+        data['routes'][0]['legs'][0].containsKey('steps') &&
+        data['routes'][0]['legs'][0]['steps'].isNotEmpty) {
+      showModalBottomSheet(
+        context: context,
+        builder: (BuildContext context) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        _openInMap(
+                          stationLocation.latitude,
+                          stationLocation.longitude,
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.location_on,
+                        color: Colors.blue,
+                      ),
+                      label: const Text(
+                        "عرض الموقع",
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      selectedLineName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const Text(
+                      " : طريقك الي ",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text('وقت الوصول الي وجهتك: $arrivalTime'),
+                        Text('وقت المغادرة: $departureTime'),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 5,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text('المسافه الكليه: $distance'),
+                        Text('الوقت الكلي : $duration'),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: data['routes'][0]['legs'].length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final leg = data['routes'][0]['legs'][index];
+                      final startAddress = leg['start_address'] ?? '';
+                      final endAddress = leg['end_address'] ?? '';
+                      final steps = leg['steps'];
+
+                      return Column(
+                        children: List.generate(steps.length, (index) {
+                          final step = steps[index];
+                          final lineDetails = step['transit_details'];
+                          final lineName = lineDetails != null
+                              ? lineDetails['line']['name']
+                              : 'Unknown';
+                          final instructions = _stripHtmlIfNeeded(
+                              step['html_instructions'] ?? '');
+                          final duration = step['duration']['text'] ?? '';
+                          final distance = step['distance']['text'] ?? '';
+
+                          List<Widget> subInstructionsWidgets = [];
+
+                          if (step.containsKey('steps')) {
+                            final subSteps = step['steps'] as List<dynamic>;
+                            for (final subStep in subSteps) {
+                              final subInstructions = _stripHtmlIfNeeded(
+                                  subStep['html_instructions'] ?? '');
+                              subInstructionsWidgets.add(
+                                Text(subInstructions),
+                              );
+                            }
+                          }
+
+                          return Column(
+                            children: [
+                              ListTile(
+                                leading: Icon(
+                                  _getTransportIcon(step),
+                                  color: Colors.blue,
+                                ),
+                                title: Text(' $instructions'),
+                                subtitle: Column(
+                                  children: [
+                                    Column(children: subInstructionsWidgets),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        Text('الوقت: $duration'),
+                                        Text('المسافه: $distance'),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Divider(),
+                            ],
+                          );
+                        }),
                       );
                     },
-                    icon: const Icon(
-                      Icons.location_on,
-                      color: Colors.blue,
-                    ),
-                    label: const Text(
-                      "عرض الموقع",
-                      style: TextStyle(color: Colors.blue),
-                    ),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    selectedLineName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const Text(
-                    " :طريقك للوصول الي ",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Text('وقت الوصول الي وجهتك: $arrivalTime'),
-                      Text('وقت المغادرة: $departureTime'),
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 5,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Text('المسافه الكليه: $distance'),
-                      Text('الوقت الكلي : $duration'),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: data['routes'][0]['legs'].length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final leg = data['routes'][0]['legs'][index];
-                    final startAddress = leg['start_address'] ?? '';
-                    final endAddress = leg['end_address'] ?? '';
-                    final steps = leg['steps'];
-
-                    return Column(
-                      children: List.generate(steps.length, (index) {
-                        final step = steps[index];
-                        final lineDetails = step['transit_details'];
-                        final lineName = lineDetails != null
-                            ? lineDetails['line']['name']
-                            : 'Unknown';
-                        final instructions =
-                            _stripHtmlIfNeeded(step['html_instructions'] ?? '');
-                        final duration = step['duration']['text'] ?? '';
-                        final distance = step['distance']['text'] ?? '';
-
-                        List<Widget> subInstructionsWidgets = [];
-
-                        if (step.containsKey('steps')) {
-                          final subSteps =
-                              step['steps'] as List<dynamic>;
-                          for (final subStep in subSteps) {
-                            final subInstructions =
-                                _stripHtmlIfNeeded(subStep['html_instructions'] ?? '');
-                            subInstructionsWidgets.add(
-                              Text(subInstructions),
-                            );
-                          }
-                        }
-
-                        return Column(
-                          children: [
-                            ListTile(
-                              leading: Icon(
-                                _getTransportIcon(step),
-                                color: Colors.blue,
-                              ),
-                              title: Text(' $instructions'),
-                              subtitle: Column(
-                                children: [
-                                  Column(children: subInstructionsWidgets),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
-                                    children: [
-                                      Text('الوقت: $duration'),
-                                      Text('المسافه: $distance'),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Divider(),
-                          ],
-                        );
-                      }),
-                    );
-                  },
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  } else {}
-}
-
-IconData _getTransportIcon(Map<String, dynamic> step) {
-  if (step.containsKey('transit_details')) {
-    final transitDetails = step['transit_details'];
-    final vehicleType = transitDetails['line']['vehicle']['type'];
-
-    switch (vehicleType) {
-      case 'BUS':
-        return Icons.directions_bus;
-      case 'WALKING':
-        return Icons.directions_walk;
-      case 'RAIL':
-        return Icons.train;
-      default:
-        return Icons.directions;
-    }
-  } else {
-    return Icons.directions;
+              ],
+            ),
+          );
+        },
+      );
+    } else {}
   }
-}
 
-String _stripHtmlIfNeeded(String text) {
-  return text.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
-}
+  IconData _getTransportIcon(Map<String, dynamic> step) {
+    if (step.containsKey('transit_details')) {
+      final transitDetails = step['transit_details'];
+      final vehicleType = transitDetails['line']['vehicle']['type'];
 
+      switch (vehicleType) {
+        case 'BUS':
+          return Icons.directions_bus;
+        case 'WALKING':
+          return Icons.directions_walk;
+        case 'RAIL':
+          return Icons.train;
+        default:
+          return Icons.directions;
+      }
+    } else {
+      return Icons.directions;
+    }
+  }
 
-  
+  String _stripHtmlIfNeeded(String text) {
+    return text.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -573,17 +578,17 @@ String _stripHtmlIfNeeded(String text) {
                         }
                       },
                     )
-                  : const Center(
+                  : Center(
                       child: Column(
-                        children: [
-                          CircularProgressIndicator(
-                            color: Colors.blue,
-                          ),
-                          Text(
-                              "انتظر قليلا جار ترتيب المواقف من حيث الاقرب لك..."),
-                        ],
-                      ),
-                    ),
+                      children: [
+                        Lottie.asset("asset/images/splash.json"),
+                        const CircularProgressIndicator(
+                          color: Colors.blue,
+                        ),
+                        const Text(
+                            "انتظر قليلا جار ترتيب المواقف من حيث الاقرب لك...")
+                      ],
+                    )),
             )
           ],
         ),

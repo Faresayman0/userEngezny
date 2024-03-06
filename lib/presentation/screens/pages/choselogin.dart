@@ -4,11 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:gradution_project2/constant/strings.dart';
 import 'package:gradution_project2/presentation/widgets/constant_widget.dart';
-import 'package:gradution_project2/presentation/widgets/nav_bar2new.dart';
 import 'package:gradution_project2/presentation/widgets/navbar.dart';
+import 'package:lottie/lottie.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ChoseLogin extends StatefulWidget {
-  const ChoseLogin({Key? key}) : super(key: key);
+  const ChoseLogin({super.key});
 
   @override
   _ChoseLoginState createState() => _ChoseLoginState();
@@ -17,15 +18,21 @@ class ChoseLogin extends StatefulWidget {
 class _ChoseLoginState extends State<ChoseLogin> {
   bool isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    checkInternetConnection();
+  }
+
   Future signInWithGoogle(BuildContext context) async {
     setState(() {
-      isLoading = true; // يتم تعيين isLoading للقيمة true هنا لإظهار مؤشر التحميل
+      isLoading = true;
     });
 
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
       setState(() {
-        isLoading = false; // يتم تعيين isLoading للقيمة false هنا لإخفاء مؤشر التحميل
+        isLoading = false;
       });
       return;
     }
@@ -59,9 +66,14 @@ class _ChoseLoginState extends State<ChoseLogin> {
       child: SafeArea(
         child: Scaffold(
           body: isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.blue,
+              ? Center(
+                  child: Column(
+                    children: [
+                      Lottie.asset("asset/images/splash.json"),
+                      const CircularProgressIndicator(
+                        color: Colors.blue,
+                      ),
+                    ],
                   ),
                 )
               : Padding(
@@ -69,11 +81,11 @@ class _ChoseLoginState extends State<ChoseLogin> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         height: 200,
                         child: ConstantWidget(),
                       ),
-                      SizedBox(height: 90),
+                      const SizedBox(height: 90),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -92,10 +104,11 @@ class _ChoseLoginState extends State<ChoseLogin> {
                             });
                           },
                           icon: const Icon(Icons.phone, color: Colors.white),
-                          label: const Text("تسجيل الدخول باستخدام رقم الهاتف",
-                              textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 15)),
+                          label: const Text(
+                            "تسجيل الدخول باستخدام رقم الهاتف",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white, fontSize: 15),
+                          ),
                         ),
                       ),
                       const SizedBox(
@@ -104,16 +117,18 @@ class _ChoseLoginState extends State<ChoseLogin> {
                       const Row(
                         children: [
                           Expanded(
-                              child: Divider(
-                            endIndent: 14,
-                            color: Colors.blue,
-                          )),
+                            child: Divider(
+                              endIndent: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
                           Text("or"),
                           Expanded(
-                              child: Divider(
-                            indent: 14,
-                            color: Colors.blue,
-                          )),
+                            child: Divider(
+                              indent: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(
@@ -130,7 +145,6 @@ class _ChoseLoginState extends State<ChoseLogin> {
                                   backgroundColor: Colors.red,
                                 ),
                                 onPressed: () {
-                                  // Loading while signing in with Google
                                   signInWithGoogle(context);
                                 },
                                 child: Row(
@@ -158,16 +172,18 @@ class _ChoseLoginState extends State<ChoseLogin> {
                       const Row(
                         children: [
                           Expanded(
-                              child: Divider(
-                            endIndent: 14,
-                            color: Colors.blue,
-                          )),
+                            child: Divider(
+                              endIndent: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
                           Text("or"),
                           Expanded(
-                              child: Divider(
-                            indent: 14,
-                            color: Colors.blue,
-                          )),
+                            child: Divider(
+                              indent: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(
@@ -190,7 +206,7 @@ class _ChoseLoginState extends State<ChoseLogin> {
                                   });
                                   Navigator.of(context).pushAndRemoveUntil(
                                     MaterialPageRoute(builder: (context) {
-                                      return const NavBarNew();
+                                      return const Navbar();
                                     }),
                                     (route) => false,
                                   );
@@ -233,6 +249,38 @@ class _ChoseLoginState extends State<ChoseLogin> {
         ),
       ),
     );
+  }
+
+  Future<void> checkInternetConnection() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      // إذا لم يكن هناك اتصال بالإنترنت، عرض رسالة تنبيه
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("خطأ في الاتصال بالإنترنت"),
+            content: const Text(
+              "الرجاء التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.",
+              textAlign: TextAlign.right,
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("موافق",
+                    style: TextStyle(
+                      color: Colors.blue,
+                    )),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      print('Internet Connection is available');
+    }
   }
 
   Future<bool> _handleBackButton(BuildContext context) async {

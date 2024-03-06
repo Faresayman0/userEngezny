@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
@@ -35,7 +36,6 @@ class _OtpScreenState extends State<OtpScreen> {
     super.initState();
     _listenForOTP();
     startTimer();
-
   }
 
   @override
@@ -44,18 +44,16 @@ class _OtpScreenState extends State<OtpScreen> {
     _timer.cancel();
     super.dispose();
   }
-@override
 
-
-void _listenForOTP() async {
-  _smsSubscription = SmsAutoFill().code.listen((code) {
-    setState(() {
-      otpController.text = code;
-      otpCode = code;
+  @override
+  void _listenForOTP() async {
+    _smsSubscription = SmsAutoFill().code.listen((code) {
+      setState(() {
+        otpController.text = code;
+        otpCode = code;
+      });
     });
-  });
-}
-
+  }
 
   Widget _buildIntroTexts() {
     return Column(
@@ -284,11 +282,16 @@ void _listenForOTP() async {
             if (_isLoading)
               Container(
                 color: Colors.black.withOpacity(0.5),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
-                ),
+                child: Center(
+                    child: Center(
+                        child: Column(
+                  children: [
+                    Lottie.asset("asset/images/splash.json"),
+                    const CircularProgressIndicator(
+                      color: Colors.blue,
+                    ),
+                  ],
+                ))),
               ),
           ],
         ),
