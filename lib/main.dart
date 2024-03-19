@@ -24,21 +24,21 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Graduation Project',
       theme: ThemeData(
-            fontFamily: "LamaSans",
-            primaryColor: Colors.blue,
-            textSelectionTheme: const TextSelectionThemeData(
-                selectionColor: Colors.blue,
-                cursorColor: Colors.blue,
-                selectionHandleColor: Colors.blue)),
+          fontFamily: "LamaSans",
+          primaryColor: Colors.blue,
+          textSelectionTheme: const TextSelectionThemeData(
+              selectionColor: Colors.blue,
+              cursorColor: Colors.blue,
+              selectionHandleColor: Colors.blue)),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.active) {
             User? user = snapshot.data;
             if (user == null) {
-              return const animitedSplashScreenxtends();     
+              return const animitedSplashScreenxtends();
             } else {
-              return const Navbar(); 
+              return const Navbar();
             }
           } else {
             return const Center(child: CircularProgressIndicator());
