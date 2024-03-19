@@ -40,6 +40,12 @@ class _ReportPageState extends State<ReportPage> {
     super.initState();
     _user = FirebaseAuth.instance.currentUser;
     fetchUserData();
+    fetchUserData().then((_) {
+    Future.delayed(Duration.zero, () {
+      print(userEmail); // يجب أن تطبع القيمة الصحيحة الآن
+      print(userPhoneNumber); // يجب أن تطبع القيمة الصحيحة الآن
+    });
+  });
     getStationName().then((_) {
       fetchLineDataForEachStation();
     });
@@ -113,6 +119,8 @@ class _ReportPageState extends State<ReportPage> {
   }
 
  Future<void> _sendComplaint() async {
+  print('Before sending: userEmail = $userEmail, userPhoneNumber = $userPhoneNumber');
+
   setState(() {
     _isLoading = true;
   });
@@ -123,6 +131,13 @@ class _ReportPageState extends State<ReportPage> {
   String digit = _digitController.text.trim();
   String carNumber = '$first$second$third$digit';
   String complaint = _complaintController.text.trim();
+    if (userEmail == null && userPhoneNumber == null) {
+    _showAlertDialog(context, 'يجب توفير البريد الإلكتروني أو رقم الهاتف قبل إرسال الشكوى.');
+    setState(() {
+      _isLoading = false;
+    });
+    return;
+  }
 
   if (second.isEmpty ||
       third.isEmpty ||
@@ -178,16 +193,16 @@ class _ReportPageState extends State<ReportPage> {
     CollectionReference messages =
         FirebaseFirestore.instance.collection('messages');
 
-    DocumentReference newDocRef = await messages.add({
-      'carNumber': carNumber,
-      'complaint': complaint,
-      'timestamp': FieldValue.serverTimestamp(),
-      'userId': _user?.uid,
-      'userName': userEmail ?? userPhoneNumber,
-      'startingLocation': selectedCity,
-      'endingLocation': selectedLine,
-      'stationId': selectedStationId,
-    });
+  DocumentReference newDocRef = await messages.add({
+  'carNumber': carNumber,
+  'complaint': complaint,
+  'timestamp': FieldValue.serverTimestamp(),
+  'userId': _user?.uid,
+  'userName': (userEmail?.isEmpty ?? true) ? userPhoneNumber : userEmail,
+  'startingLocation': selectedCity,
+  'endingLocation': selectedLine,
+  'stationId': selectedStationId,
+});
 
     String documentId = newDocRef.id;
     await newDocRef.update({'documentId': documentId});

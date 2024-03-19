@@ -21,7 +21,12 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    fetchUserData();
+    fetchUserData().then((_) {
+      Future.delayed(Duration.zero, () {
+        print(userEmail);
+        print(userPhoneNumber);
+      });
+    });
   }
 
   Future<void> fetchUserData() async {
@@ -141,20 +146,15 @@ class _ProfilePageState extends State<ProfilePage> {
                       backgroundColor: Colors.blue,
                     ),
                     onPressed: () async {
-                      PhoneAuthCubit phoneAuthCubit =
-                          BlocProvider.of<PhoneAuthCubit>(context);
-                      GoogleSignIn googleSignIn = GoogleSignIn();
-
+                      final phoneAuthCubit = PhoneAuthCubit();
+                      final googleSignIn = GoogleSignIn();
                       try {
                         await googleSignIn.disconnect();
                       } catch (error) {}
-
                       try {
                         await FirebaseAuth.instance.signOut();
                       } catch (error) {}
-
                       await phoneAuthCubit.logOut();
-
                       Navigator.of(context).pushNamedAndRemoveUntil(
                         choseLogin,
                         (route) => false,
@@ -235,27 +235,28 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-             GestureDetector(
-  onTap: () async {
-    String url = facebookUrl; // يجب أن يكون facebookUrl هو رابط ملف الشخص على Facebook
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  },
-  child: const Row(
-    children: [
-      Icon(Icons.facebook, color: Colors.blue),
-      SizedBox(width: 8),
-      Text(
-        'فيسبوك',
-        style: TextStyle(fontSize: 20),
-      ),
-    ],
-  ),
-),
-    ],
+                  GestureDetector(
+                    onTap: () async {
+                      String url =
+                          facebookUrl; // يجب أن يكون facebookUrl هو رابط ملف الشخص على Facebook
+                      if (await canLaunch(url)) {
+                        await launch(url);
+                      } else {
+                        throw 'Could not launch $url';
+                      }
+                    },
+                    child: const Row(
+                      children: [
+                        Icon(Icons.facebook, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          'فيسبوك',
+                          style: TextStyle(fontSize: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
