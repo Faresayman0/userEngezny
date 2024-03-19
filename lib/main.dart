@@ -24,8 +24,12 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Graduation Project',
       theme: ThemeData(
-        fontFamily: 'LamaSans',
-      ),
+            fontFamily: "LamaSans",
+            primaryColor: Colors.blue,
+            textSelectionTheme: const TextSelectionThemeData(
+                selectionColor: Colors.blue,
+                cursorColor: Colors.blue,
+                selectionHandleColor: Colors.blue)),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
