@@ -34,6 +34,7 @@ class _ReportPageState extends State<ReportPage> {
   String? selectedCity;
   String? selectedLine;
   bool _isLoading = false;
+  bool isViewed = false;
 
   @override
   void initState() {
@@ -41,11 +42,11 @@ class _ReportPageState extends State<ReportPage> {
     _user = FirebaseAuth.instance.currentUser;
     fetchUserData();
     fetchUserData().then((_) {
-    Future.delayed(Duration.zero, () {
-      print(userEmail); // يجب أن تطبع القيمة الصحيحة الآن
-      print(userPhoneNumber); // يجب أن تطبع القيمة الصحيحة الآن
+      Future.delayed(Duration.zero, () {
+        print(userEmail);
+        print(userPhoneNumber);
+      });
     });
-  });
     getStationName().then((_) {
       fetchLineDataForEachStation();
     });
@@ -118,118 +119,121 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
- Future<void> _sendComplaint() async {
-  print('Before sending: userEmail = $userEmail, userPhoneNumber = $userPhoneNumber');
+  Future<void> _sendComplaint() async {
+    print(
+        'Before sending: userEmail = $userEmail, userPhoneNumber = $userPhoneNumber');
 
-  setState(() {
-    _isLoading = true;
-  });
+    setState(() {
+      _isLoading = true;
+    });
 
-  String first = _firstController.text.trim();
-  String second = _secondController.text.trim();
-  String third = _thirdController.text.trim();
-  String digit = _digitController.text.trim();
-  String carNumber = '$first$second$third$digit';
-  String complaint = _complaintController.text.trim();
+    String first = _firstController.text.trim();
+    String second = _secondController.text.trim();
+    String third = _thirdController.text.trim();
+    String digit = _digitController.text.trim();
+    String carNumber = '$first$second$third$digit';
+    String complaint = _complaintController.text.trim();
     if (userEmail == null && userPhoneNumber == null) {
-    _showAlertDialog(context, 'يجب توفير البريد الإلكتروني أو رقم الهاتف قبل إرسال الشكوى.');
-    setState(() {
-      _isLoading = false;
-    });
-    return;
-  }
-
-  if (second.isEmpty ||
-      third.isEmpty ||
-      digit.isEmpty ||
-      complaint.isEmpty ||
-      selectedCity == null ||
-      selectedLine == null) {
-    _showAlertDialog(
-        context, 'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
-    setState(() {
-      _isLoading = false; 
-    });
-    return;
-  }
-
-  try {
-    final carQuerySnapshot = await FirebaseFirestore.instance
-        .collection('AllCars')
-        .where('numberOfCar', isEqualTo: carNumber)
-        .get();
-
-    if (carQuerySnapshot.docs.isEmpty) {
-      _clearInputFields();
-    _resetDropdownValues();
-    Future.delayed(Duration.zero, () {
-      FocusScope.of(context).requestFocus(_firstFocusNode);
-    });
-      _showAlertDialog(context, "نمرة السيارة غير صحيحة");
+      _showAlertDialog(context,
+          'يجب توفير البريد الإلكتروني أو رقم الهاتف قبل إرسال الشكوى.');
       setState(() {
-        _isLoading = false; 
+        _isLoading = false;
       });
       return;
     }
 
-    var selectedStationId = stationName
-        .firstWhere((element) => element['name'] == selectedCity)['id'];
-    var stationIds = carQuerySnapshot.docs
-        .map((doc) => doc['stationId'].toString())
-        .toList();
-    if (!stationIds.contains(selectedStationId)) {
-      _clearInputFields();
-    _resetDropdownValues();
-    Future.delayed(Duration.zero, () {
-      FocusScope.of(context).requestFocus(_firstFocusNode);
-    });
-      _showAlertDialog(context, "السيارة لم تتم تسجيلها في هذا الموقف");
+    if (second.isEmpty ||
+        third.isEmpty ||
+        digit.isEmpty ||
+        complaint.isEmpty ||
+        selectedCity == null ||
+        selectedLine == null) {
+      _showAlertDialog(
+          context, 'الرجاء ادخال جميع نمرة السيارة والشكوى واختيار المواقف');
       setState(() {
-        _isLoading = false;    
+        _isLoading = false;
       });
       return;
     }
 
-    CollectionReference messages =
-        FirebaseFirestore.instance.collection('messages');
+    try {
+      final carQuerySnapshot = await FirebaseFirestore.instance
+          .collection('AllCars')
+          .where('numberOfCar', isEqualTo: carNumber)
+          .get();
 
-  DocumentReference newDocRef = await messages.add({
-  'carNumber': carNumber,
-  'complaint': complaint,
-  'timestamp': FieldValue.serverTimestamp(),
-  'userId': _user?.uid,
-  'userName': (userEmail?.isEmpty ?? true) ? userPhoneNumber : userEmail,
-  'startingLocation': selectedCity,
-  'endingLocation': selectedLine,
-  'stationId': selectedStationId,
-});
+      if (carQuerySnapshot.docs.isEmpty) {
+        _clearInputFields();
+        _resetDropdownValues();
+        Future.delayed(Duration.zero, () {
+          FocusScope.of(context).requestFocus(_firstFocusNode);
+        });
+        _showAlertDialog(context, "نمرة السيارة غير صحيحة");
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
-    String documentId = newDocRef.id;
-    await newDocRef.update({'documentId': documentId});
+      var selectedStationId = stationName
+          .firstWhere((element) => element['name'] == selectedCity)['id'];
+      var stationIds = carQuerySnapshot.docs
+          .map((doc) => doc['stationId'].toString())
+          .toList();
+      if (!stationIds.contains(selectedStationId)) {
+        _clearInputFields();
+        _resetDropdownValues();
+        Future.delayed(Duration.zero, () {
+          FocusScope.of(context).requestFocus(_firstFocusNode);
+        });
+        _showAlertDialog(context, "السيارة لم تتم تسجيلها في هذا الموقف");
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          backgroundColor: Colors.green,
-          content: Text(
-            'تم إرسال الشكوى بنجاح',
-            textAlign: TextAlign.end,
-          )),
-    );
+      CollectionReference messages =
+          FirebaseFirestore.instance.collection('messages');
 
-    _clearInputFields();
-    _resetDropdownValues();
-    Future.delayed(Duration.zero, () {
-      FocusScope.of(context).requestFocus(_firstFocusNode);
-    });
-  } catch (e) {
-    _showAlertDialog(
-        context, 'حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
-  } finally {
-    setState(() {
-      _isLoading = false; 
-    });
+      DocumentReference newDocRef = await messages.add({
+        'carNumber': carNumber,
+        'complaint': complaint,
+        'timestamp': FieldValue.serverTimestamp(),
+        'userId': _user?.uid,
+        'userName': (userEmail?.isEmpty ?? true) ? userPhoneNumber : userEmail,
+        'startingLocation': selectedCity,
+        'endingLocation': selectedLine,
+        'stationId': selectedStationId,
+        "isViewed": isViewed,
+      });
+
+      String documentId = newDocRef.id;
+      await newDocRef.update({'documentId': documentId});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text(
+              'تم إرسال الشكوى بنجاح',
+              textAlign: TextAlign.end,
+            )),
+      );
+
+      _clearInputFields();
+      _resetDropdownValues();
+      Future.delayed(Duration.zero, () {
+        FocusScope.of(context).requestFocus(_firstFocusNode);
+      });
+    } catch (e) {
+      _showAlertDialog(
+          context, 'حدث خطأ أثناء إرسال الشكوى، يرجى المحاولة مرة أخرى');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
 
   void _resetDropdownValues() {
     setState(() {
@@ -305,11 +309,21 @@ class _ReportPageState extends State<ReportPage> {
               _buildMessageText(
                   'رايح الي:', messageData['endingLocation'].toString()),
               _buildMessageText('الوقت:', formattedTime),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  _deleteComplaint(messageData);
-                },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  messageData["isViewed"]
+                      ? const Row(
+                          children: [Text("تمت المشاهده"), Icon(Icons.check)],
+                        )
+                      : const Text("لم تتم المشاهده"),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {
+                      _deleteComplaint(messageData);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -387,66 +401,66 @@ class _ReportPageState extends State<ReportPage> {
     ]);
   }
 
- void _checkCarExistence() async {
-  String first = _firstController.text.trim();
-  String second = _secondController.text.trim();
-  String third = _thirdController.text.trim();
-  String digit = _digitController.text.trim();
-  String carNumber = '$first$second$third$digit';
+  void _checkCarExistence() async {
+    String first = _firstController.text.trim();
+    String second = _secondController.text.trim();
+    String third = _thirdController.text.trim();
+    String digit = _digitController.text.trim();
+    String carNumber = '$first$second$third$digit';
 
-  try {
-    final carQuerySnapshot = await FirebaseFirestore.instance
-        .collection('AllCars')
-        .where('numberOfCar', isEqualTo: carNumber)
-        .get();
+    try {
+      final carQuerySnapshot = await FirebaseFirestore.instance
+          .collection('AllCars')
+          .where('numberOfCar', isEqualTo: carNumber)
+          .get();
 
-    if (mounted && carQuerySnapshot.docs.isNotEmpty) {
-      // السيارة موجودة
-      for (var doc in carQuerySnapshot.docs) {
-        var stationId = doc['stationId'];
-        print('stationId for car $carNumber: $stationId');
-      }
-    } else {
-      // السيارة غير موجودة
-      print('السيارة غير موجودة');
-    }
-  } catch (e) {
-    print('حدث خطأ أثناء البحث عن السيارة: $e');
-  }
-}
-
-Widget _buildTextField(String labelText, TextEditingController controller,
-    FocusNode focusNode, int maxLength, TextInputType keyboardType) {
-  return Expanded(
-    child: TextField(
-      controller: controller,
-      textAlign: TextAlign.center,
-      focusNode: focusNode,
-      onChanged: (value) {
-        _checkCarExistence(); // تنفيذ الكود عند تغيير القيمة
-        if (value.length == maxLength) {
-          _moveToNextField(focusNode, maxLength);
+      if (mounted && carQuerySnapshot.docs.isNotEmpty) {
+        // السيارة موجودة
+        for (var doc in carQuerySnapshot.docs) {
+          var stationId = doc['stationId'];
+          print('stationId for car $carNumber: $stationId');
         }
-      },
-      decoration: InputDecoration(
-        labelText: labelText,
-        labelStyle: const TextStyle(color: Colors.blue, fontSize: 10),
-        counterText: '',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+      } else {
+        // السيارة غير موجودة
+        print('السيارة غير موجودة');
+      }
+    } catch (e) {
+      print('حدث خطأ أثناء البحث عن السيارة: $e');
+    }
+  }
+
+  Widget _buildTextField(String labelText, TextEditingController controller,
+      FocusNode focusNode, int maxLength, TextInputType keyboardType) {
+    return Expanded(
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.center,
+        focusNode: focusNode,
+        onChanged: (value) {
+          _checkCarExistence(); // تنفيذ الكود عند تغيير القيمة
+          if (value.length == maxLength) {
+            _moveToNextField(focusNode, maxLength);
+          }
+        },
+        decoration: InputDecoration(
+          labelText: labelText,
+          labelStyle: const TextStyle(color: Colors.blue, fontSize: 10),
+          counterText: '',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          focusedBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blue),
+          ),
         ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.blue),
-        ),
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        onEditingComplete: () {
+          _moveToNextField(focusNode, maxLength);
+        },
       ),
-      keyboardType: keyboardType,
-      maxLength: maxLength,
-      onEditingComplete: () {
-        _moveToNextField(focusNode, maxLength);
-      },
-    ),
-  );
-}
+    );
+  }
 
   Future<void> printStationIdForCar(String carNumber) async {
     try {
@@ -521,13 +535,14 @@ Widget _buildTextField(String labelText, TextEditingController controller,
       ),
     );
   }
-String _buildCarNumber() {
-  String first = _firstController.text.trim();
-  String second = _secondController.text.trim();
-  String third = _thirdController.text.trim();
-  String digit = _digitController.text.trim();
-  return '$first$second$third$digit';
-}
+
+  String _buildCarNumber() {
+    String first = _firstController.text.trim();
+    String second = _secondController.text.trim();
+    String third = _thirdController.text.trim();
+    String digit = _digitController.text.trim();
+    return '$first$second$third$digit';
+  }
 
   Widget _buildSentComplaints() {
     return Column(

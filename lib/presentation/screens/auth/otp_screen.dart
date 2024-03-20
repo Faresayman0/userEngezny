@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,29 +30,30 @@ class _OtpScreenState extends State<OtpScreen> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
-  @override
-  void initState() {
-    super.initState();
-    _listenForOTP();
-    startTimer();
-  }
+ @override
+void initState() {
+  super.initState();
+  _listenForOTP();
+  startTimer();
+}
 
-  @override
-  void dispose() {
-    _smsSubscription.cancel();
-    _timer.cancel();
-    super.dispose();
-  }
+@override
+void dispose() {
+  _smsSubscription.cancel();
+  _timer.cancel();
+  super.dispose();
+}
 
-  @override
-  void _listenForOTP() async {
-    _smsSubscription = SmsAutoFill().code.listen((code) {
-      setState(() {
-        otpController.text = code;
-        otpCode = code;
-      });
+void _listenForOTP() async {
+  await SmsAutoFill().listenForCode;
+  _smsSubscription = SmsAutoFill().code.listen((code) {
+    setState(() {
+      otpController.text = code;
+      otpCode = code;
     });
-  }
+  });
+}
+
 
   Widget _buildIntroTexts() {
     return Column(
