@@ -591,7 +591,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<Map<String, double>> getDistanceAndDuration(
       maps.LatLng origin, maps.LatLng destination, String mode) async {
-    const apiKey = 'AIzaSyDh3__9kh_BOO31Jph0XNt2VhSYVsMYobo';
+    const apiKey = 'AIzaSyAy0t9jzqEs4mM4QHHWlrZf8lizDeFNE-s';
     final url =
         'https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origin.latitude},${origin.longitude}&destinations=${destination.latitude},${destination.longitude}&mode=$mode&key=$apiKey';
 

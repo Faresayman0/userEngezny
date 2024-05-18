@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:gradution_project2/presentation/screens/pages/transport_details_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -25,7 +26,6 @@ class _TransportDetailsState extends State<TransportDetails> {
   Map<String, bool> expansionTileState = {};
   bool dataLoaded = false;
   Position? currentPosition;
-  String selectedLineName = '';
 
   @override
   void initState() {
@@ -165,281 +165,17 @@ class _TransportDetailsState extends State<TransportDetails> {
     }
   }
 
-  Future<void> _getPublicTransportForStation(
-      String stationId, String lineName) async {
-    setState(() {
-      selectedLineName = lineName;
-    });
-
-    try {
-      print(
-          'Getting public transport for station: $stationId, line: $lineName');
-
-      GeoPoint stationLocation = (await FirebaseFirestore.instance
-              .collection('المواقف')
-              .doc(stationId)
-              .get())
-          .get('location');
-      print('Public transport data retrieved successfully.');
-
-      const apiKey = 'AIzaSyDh3__9kh_BOO31Jph0XNt2VhSYVsMYobo';
-      const apiUrl = 'https://maps.googleapis.com/maps/api/directions/json';
-
-      const language = 'ar';
-
-      final response = await http.get(Uri.parse(
-          '$apiUrl?key=$apiKey&origin=${currentPosition!.latitude},${currentPosition!.longitude}&destination=${stationLocation.latitude},${stationLocation.longitude}&mode=transit&language=$language'));
-
-      if (response.statusCode == 200) {
-        print(response.request);
-        print(response.statusCode);
-        print(response.body);
-
-        final decodedData = json.decode(response.body);
-
-        final arrivalTime =
-            (decodedData['routes'][0]['legs'][0]['arrival_time'] != null &&
-                    decodedData['routes'][0]['legs'][0]['arrival_time']
-                            ['text'] !=
-                        null)
-                ? decodedData['routes'][0]['legs'][0]['arrival_time']['text']
-                : 'لاحقا';
-
-        final departureTime =
-            (decodedData['routes'][0]['legs'][0]['departure_time'] != null &&
-                    decodedData['routes'][0]['legs'][0]['departure_time']
-                            ['text'] !=
-                        null)
-                ? decodedData['routes'][0]['legs'][0]['departure_time']['text']
-                : 'لاحقا';
-
-        const arrivalTimeText = 'لاحقا';
-        final distance = (decodedData['routes'][0]['legs'][0]["distance"] !=
-                    null &&
-                decodedData['routes'][0]['legs'][0]["distance"]['text'] != null)
-            ? decodedData['routes'][0]['legs'][0]["distance"]['text']
-            : 'لاحقا';
-
-        final duration = (decodedData['routes'][0]['legs'][0]["duration"] !=
-                    null &&
-                decodedData['routes'][0]['legs'][0]["duration"]['text'] != null)
-            ? decodedData['routes'][0]['legs'][0]["duration"]['text']
-            : 'لاحقا';
-
-        _showTransportDetailsBottomSheet(decodedData, arrivalTime,
-            departureTime, distance, duration, stationLocation);
-      } else {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text(
-                "حدثت مشكله ",
-                textAlign: TextAlign.end,
-                style: TextStyle(fontSize: 18),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    'إغلاق',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-        throw Exception('فشل في تحميل بيانات النقل العام');
-      }
-    } catch (e) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text(
-              "لا توجد مواصلات عامه لهذه المنطقه حاليا في هذا الوقت",
-              textAlign: TextAlign.end,
-              style: TextStyle(fontSize: 18),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text(
-                  'إغلاق',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.blue,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-      print('Error getting public transport data: $e');
-    }
-  }
-
-  void _showTransportDetailsBottomSheet(
-    Map<String, dynamic> data,
-    String arrivalTime,
-    String departureTime,
-    String distance,
-    String duration,
-    GeoPoint stationLocation,
-  ) {
-    if (data.containsKey('routes') &&
-        data['routes'].isNotEmpty &&
-        data['routes'][0].containsKey('legs') &&
-        data['routes'][0]['legs'].isNotEmpty &&
-        data['routes'][0]['legs'][0].containsKey('steps') &&
-        data['routes'][0]['legs'][0]['steps'].isNotEmpty) {
-      showModalBottomSheet(
-        context: context,
-        builder: (BuildContext context) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        _openInMap(
-                          stationLocation.latitude,
-                          stationLocation.longitude,
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.location_on,
-                        color: Colors.blue,
-                      ),
-                      label: const Text(
-                        "عرض الموقع",
-                        style: TextStyle(color: Colors.blue),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      selectedLineName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const Text(
-                      " : طريقك الي ",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text('وقت الوصول الي وجهتك: $arrivalTime'),
-                        Text('وقت المغادرة: $departureTime'),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 5,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text('المسافه الكليه: $distance'),
-                        Text('الوقت الكلي : $duration'),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: data['routes'][0]['legs'].length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final leg = data['routes'][0]['legs'][index];
-                      final startAddress = leg['start_address'] ?? '';
-                      final endAddress = leg['end_address'] ?? '';
-                      final steps = leg['steps'];
-
-                      return Column(
-                        children: List.generate(steps.length, (index) {
-                          final step = steps[index];
-                          final lineDetails = step['transit_details'];
-                          final lineName = lineDetails != null
-                              ? lineDetails['line']['name']
-                              : 'Unknown';
-                          final instructions = _stripHtmlIfNeeded(
-                              step['html_instructions'] ?? '');
-                          final duration = step['duration']['text'] ?? '';
-                          final distance = step['distance']['text'] ?? '';
-
-                          List<Widget> subInstructionsWidgets = [];
-
-                          if (step.containsKey('steps')) {
-                            final subSteps = step['steps'] as List<dynamic>;
-                            for (final subStep in subSteps) {
-                              final subInstructions = _stripHtmlIfNeeded(
-                                  subStep['html_instructions'] ?? '');
-                              subInstructionsWidgets.add(
-                                Text(subInstructions),
-                              );
-                            }
-                          }
-
-                          return Column(
-                            children: [
-                              ListTile(
-                                leading: Icon(
-                                  _getTransportIcon(step),
-                                  color: Colors.blue,
-                                ),
-                                title: Text(' $instructions'),
-                                subtitle: Column(
-                                  children: [
-                                    Column(children: subInstructionsWidgets),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceAround,
-                                      children: [
-                                        Text('الوقت: $duration'),
-                                        Text('المسافه: $distance'),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(),
-                            ],
-                          );
-                        }),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else {}
+  void _getPublicTransportForStation(String stationId, String lineName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransportDetailsPage(
+          stationId: stationId,
+          lineName: lineName,
+          currentPosition: currentPosition!,
+        ),
+      ),
+    );
   }
 
   IconData _getTransportIcon(Map<String, dynamic> step) {
